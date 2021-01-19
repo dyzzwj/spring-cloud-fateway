@@ -36,8 +36,12 @@ import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.util.StringUtils;
 
 /**
- * TODO: change to RouteLocator? use java dsl
- * @author Spencer Gibb
+ * DiscoveryClientRouteDefinitionLocator 通过调用DiscoveryClient 获取注册在注册中心的服务列表，
+ * 生成对应的 RouteDefinition 数组。
+ * RoutePredicateHandlerMapping 使用 CachingRouteLocator 来获取 Route 信息。
+ * 在 Spring Cloud Gateway 启动后，如果有新加入的服务，则需要刷新 CachingRouteLocator 缓存。
+ * 这里有一点需要注意下 ：新加入的服务，指的是新的 serviceId ，而不是原有服务新增的实例。
+ * 个人建议，写一个定时任务，间隔调用 DiscoveryClient 获取服务列表，若发现变化，刷新 CachingRouteLocator 缓存。
  */
 public class DiscoveryClientRouteDefinitionLocator implements RouteDefinitionLocator {
 
@@ -47,9 +51,15 @@ public class DiscoveryClientRouteDefinitionLocator implements RouteDefinitionLoc
 	private final SimpleEvaluationContext evalCtxt;
 
 	public DiscoveryClientRouteDefinitionLocator(DiscoveryClient discoveryClient, DiscoveryLocatorProperties properties) {
+		//服务发现客户端，用于向注册中心发起请求
 		this.discoveryClient = discoveryClient;
+		/**
+		 * 在GatewayDiscoveryClientAutoConfiguration自动配置类中，设置了RewritePathGatewayFilterFactory
+		 * 和PathRoutePredicateFactory 在创建FilterDefinition和PredicateDefinition用得上
+		 */
 		this.properties = properties;
 		if (StringUtils.hasText(properties.getRouteIdPrefix())) {
+			//路由配置编号前缀，以 DiscoveryClient 类名 + _
 			this.routeIdPrefix = properties.getRouteIdPrefix();
 		} else {
 			this.routeIdPrefix = this.discoveryClient.getClass().getSimpleName() + "_";
@@ -79,7 +89,11 @@ public class DiscoveryClientRouteDefinitionLocator implements RouteDefinitionLoc
 				return include;
 			};
 		}
-
+		/**
+		 * 调用discoveryClient.getServices()从注册中心获取RouteDefinition
+		 *
+		 * 遍历服务列表，生成对应的 RouteDefinition 数组
+		 */
 		return Flux.fromIterable(discoveryClient.getServices())
 				.map(discoveryClient::getInstances)
 				.filter(instances -> !instances.isEmpty())
@@ -89,12 +103,25 @@ public class DiscoveryClientRouteDefinitionLocator implements RouteDefinitionLoc
 					String serviceId = instance.getServiceId();
 
                     RouteDefinition routeDefinition = new RouteDefinition();
+                    //设置Id
                     routeDefinition.setId(this.routeIdPrefix + serviceId);
+                    //设置Url
+					/**
+					 * 格式为 lb://${serviceId} 。在 LoadBalancerClientFilter 会根据 lb:// 前缀过滤处理，
+					 * 负载均衡，选择最终调用的服务地址
+					 *
+					 *
+					 *  在GatewayDiscoveryClientAutoConfiguration自动配置类中，
+					 *  会使用RewritePathGatewayFilterFactory 创建重写网关过滤器
+					 *
+					 *
+					 */
 					String uri = urlExpr.getValue(evalCtxt, instance, String.class);
 					routeDefinition.setUri(URI.create(uri));
 
 					final ServiceInstance instanceForEval = new DelegatingServiceInstance(instance, properties);
 
+					//生成PredicateDefinition
 					for (PredicateDefinition original : this.properties.getPredicates()) {
 						PredicateDefinition predicate = new PredicateDefinition();
 						predicate.setName(original.getName());
@@ -102,9 +129,11 @@ public class DiscoveryClientRouteDefinitionLocator implements RouteDefinitionLoc
 							String value = getValueFromExpr(evalCtxt, parser, instanceForEval, entry);
 							predicate.addArg(entry.getKey(), value);
 						}
+						//将PredicateDefinition绑定到routeDefinition
 						routeDefinition.getPredicates().add(predicate);
 					}
 
+					//生成FilterDefinition
                     for (FilterDefinition original : this.properties.getFilters()) {
                     	FilterDefinition filter = new FilterDefinition();
                     	filter.setName(original.getName());
@@ -112,6 +141,7 @@ public class DiscoveryClientRouteDefinitionLocator implements RouteDefinitionLoc
 							String value = getValueFromExpr(evalCtxt, parser, instanceForEval, entry);
 							filter.addArg(entry.getKey(), value);
 						}
+						//将FilterDefinition绑定到routeDefinition
 						routeDefinition.getFilters().add(filter);
 					}
 

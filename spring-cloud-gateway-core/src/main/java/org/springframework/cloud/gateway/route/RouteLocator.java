@@ -20,9 +20,8 @@ package org.springframework.cloud.gateway.route;
 import reactor.core.publisher.Flux;
 
 /**
- * @author Spencer Gibb
+ * 获取Route
  */
-//TODO: rename to Routes?
 public interface RouteLocator {
 
 	Flux<Route> getRoutes();

@@ -33,8 +33,35 @@ import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * @author Spencer Gibb
+ * yaml配置解析
+ * spring:
+ *   cloud:
+ *     gateway: # ①
+ *       routes: # ②
+ *       - id: cookie_route # ③
+ *         uri: http://example.org # ④
+ *         predicates: # ⑤
+ *         - Cookie=chocolate, ch.p # ⑥
+ *         filters: # ⑦
+ *         - AddRequestHeader=X-Request-Foo, Bar # ⑧
+ *
+ * ① "spring.cloud.gateway" 为固定前缀。
+ *
+ * ② 定义路由信息列表，即可定义多个路由。
+ *
+ * ③ 声明了一个 id 为 "cookie_route" 的路由。
+ *
+ * ④ 定义了路由的目的地 uri，即请求转发的目的地。
+ *
+ * ⑤ 声明 predicates，即请求满足相应的条件才能匹配成功。
+ *
+ * ⑥ 定义了一个 Predicate，当名称为 chocolate 的 Cookie 的值匹配ch.p时 Predicate 才能够匹配，它由 CookieRoutePredicateFactory 来生产。
+ *
+ * ⑦ 声明 filters，即路由转发前后处理的过滤器。
+ *
+ * ⑧ 定义了一个 Filter，所有的请求转发至下游服务时会添加请求头 X-Request-Foo:Bar ，由AddRequestHeaderGatewayFilterFactory 来生产。
  */
+
 @ConfigurationProperties("spring.cloud.gateway")
 @Validated
 public class GatewayProperties {

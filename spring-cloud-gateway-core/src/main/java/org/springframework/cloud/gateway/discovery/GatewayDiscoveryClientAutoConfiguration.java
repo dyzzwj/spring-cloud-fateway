@@ -81,6 +81,10 @@ public class GatewayDiscoveryClientAutoConfiguration {
 		return definitions;
 	}
 
+	/**
+	 * 创建重写网关过滤器，用于移除请求路径里的 /${serviceId} 。如果不移除，最终请求不到服务
+	 *
+	 */
 	public static List<FilterDefinition> initFilters() {
 		ArrayList<FilterDefinition> definitions = new ArrayList<>();
 

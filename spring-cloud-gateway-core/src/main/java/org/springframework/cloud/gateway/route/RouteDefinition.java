@@ -36,25 +36,51 @@ import static org.springframework.util.StringUtils.tokenizeToStringArray;
 /**
  * @author Spencer Gibb
  */
+
+/**
+ * RouteDefinition中所定义的属性与Route中是一一对应的
+ */
 @Validated
 public class RouteDefinition {
+
+	//ID 编号，唯一
 	@NotEmpty
 	private String id = UUID.randomUUID().toString();
 
+
+	/**
+	 * 谓语定义数组。请求通过 predicates 判断是否匹配。在 Route 里，PredicateDefinition 转换成 Predicate 。
+	 */
 	@NotEmpty
 	@Valid
 	private List<PredicateDefinition> predicates = new ArrayList<>();
 
+	/**
+	 * 过滤器定义数组。在 Route 里，FilterDefinition 转换成 GatewayFilter
+	 */
 	@Valid
 	private List<FilterDefinition> filters = new ArrayList<>();
 
+	/**
+	 * 路由向的uri
+	 */
 	@NotNull
 	private URI uri;
 
+	/**
+	 * 顺序。当请求匹配到多个路由时，使用顺序小的。
+	 */
 	private int order = 0;
 
 	public RouteDefinition() {}
 
+
+	/**
+	 * 根据 text 创建 RouteDefinition
+	 *
+	 * @param text 格式 ${id}=${uri},${predicates[0]},${predicates[1]}...${predicates[n]}
+	 *             例如 route001=http://127.0.0.1,Host=**.addrequestparameter.org,Path=/get
+	 */
 	public RouteDefinition(String text) {
 		int eqIdx = text.indexOf('=');
 		if (eqIdx <= 0) {

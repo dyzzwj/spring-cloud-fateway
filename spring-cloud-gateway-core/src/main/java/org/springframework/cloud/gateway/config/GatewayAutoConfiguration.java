@@ -152,6 +152,8 @@ public class GatewayAutoConfiguration {
 	@Configuration
 	@ConditionalOnClass(HttpClient.class)
 	protected static class NettyConfiguration {
+
+
 		@Bean
 		@ConditionalOnMissingBean
 		public HttpClient httpClient(@Qualifier("nettyClientOptions") Consumer<? super HttpClientOptions.Builder> options) {
@@ -270,18 +272,46 @@ public class GatewayAutoConfiguration {
 		return new RouteLocatorBuilder(context);
 	}
 
+	/**
+	 *
+	 * RouteDefinitionLocator :负责读取路由配置 生成RouteDefinition
+	 * RouteDefinitionLocator的子类 从配置文件(yml/properties)读取
+	 * @param properties
+	 * @return
+	 */
 	@Bean
 	@ConditionalOnMissingBean
 	public PropertiesRouteDefinitionLocator propertiesRouteDefinitionLocator(GatewayProperties properties) {
 		return new PropertiesRouteDefinitionLocator(properties);
 	}
 
+	/**
+	 *  RouteDefinitionLocator :负责读取路由配置 生成RouteDefinition
+	 *  RouteDefinitionLocator 的子类, 从存储器（redis/内存/mysql）读取
+	 *  当不存在 RouteDefinitionRepository 的 Bean 对象时，初始化 InMemoryRouteDefinitionRepository 。
+	 *  也就是说，我们可以初始化自定义的 RouteDefinitionRepository 以注入
+	 * @return
+	 */
 	@Bean
 	@ConditionalOnMissingBean(RouteDefinitionRepository.class)
 	public InMemoryRouteDefinitionRepository inMemoryRouteDefinitionRepository() {
 		return new InMemoryRouteDefinitionRepository();
 	}
 
+	/**
+	 * DiscoveryClientRouteDefinitionLocator 在GatewayDiscoveryClientAutoConfiguration中添加到容器的（有条件）
+	 *  RouteDefinitionLocator 的子类 从注册中心(eureka/etcd/zk/consul)读取
+	 *
+	 */
+
+
+	/**
+	 * CompositeRouteDefinitionLocator  组合多种 RouteDefinitionLocator 的实现，为 RouteDefinitionRouteLocator 提供统一入口
+	 * 这给用户（开发者）提供了可扩展的余地，用户可以根据需要扩展自己的 RouteDefinitionLocator，
+	 * 比如 RouteDefinition 可源自数据库。
+	 * @param routeDefinitionLocators
+	 * @return
+	 */
 	@Bean
 	@Primary
 	public RouteDefinitionLocator routeDefinitionLocator(List<RouteDefinitionLocator> routeDefinitionLocators) {

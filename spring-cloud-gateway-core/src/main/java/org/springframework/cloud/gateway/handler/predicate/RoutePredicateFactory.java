@@ -29,7 +29,8 @@ import org.springframework.web.server.ServerWebExchange;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.toAsyncPredicate;
 
 /**
- * @author Spencer Gibb
+ * 生产Predicate
+ * @param <C>
  */
 @FunctionalInterface
 public interface RoutePredicateFactory<C> extends ShortcutConfigurable, Configurable<C> {
@@ -43,6 +44,12 @@ public interface RoutePredicateFactory<C> extends ShortcutConfigurable, Configur
 		return apply(config);
 	}
 
+	/**
+	 * 创建一个用于配置用途的对象（config），以其作为参数应用到 apply方法上来生产一个 Predicate 对象，
+	 * 再将 Predicate 对象包装成 AsyncPredicate。
+	 * @param consumer
+	 * @return
+	 */
 	default AsyncPredicate<ServerWebExchange> applyAsync(Consumer<C> consumer) {
 		C config = newConfig();
 		consumer.accept(config);
