@@ -322,6 +322,7 @@ public class GatewayAutoConfiguration {
 	public RouteLocator routeDefinitionRouteLocator(GatewayProperties properties,
 												   List<GatewayFilterFactory> GatewayFilters,
 												   List<RoutePredicateFactory> predicates,
+												   //注入CompositeRouteDefinitionLocator
 												   RouteDefinitionLocator routeDefinitionLocator) {
 		return new RouteDefinitionRouteLocator(routeDefinitionLocator, predicates, GatewayFilters, properties);
 	}

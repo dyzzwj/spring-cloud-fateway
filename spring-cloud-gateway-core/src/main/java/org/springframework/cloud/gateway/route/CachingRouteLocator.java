@@ -29,16 +29,19 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 
 /**
- * @author Spencer Gibb
+ * 缓存路由的 RouteLocator 实现类。
+ * RoutePredicateHandlerMapping 调用 CachingRouteLocator 的 RouteLocator#getRoutes() 方法，获取路由
  */
 public class CachingRouteLocator implements RouteLocator {
 
 	private final RouteLocator delegate;
 	private final Flux<Route> routes;
+	//Route缓存信息
 	private final Map<String, List> cache = new HashMap<>();
 
 	public CachingRouteLocator(RouteLocator delegate) {
 		this.delegate = delegate;
+
 		routes = CacheFlux.lookup(cache, "routes", Route.class)
 				.onCacheMissResume(() -> this.delegate.getRoutes().sort(AnnotationAwareOrderComparator.INSTANCE));
 	}
@@ -57,6 +60,11 @@ public class CachingRouteLocator implements RouteLocator {
 		return this.routes;
 	}
 
+	/**
+	 * 监听 org.springframework.context.ApplicationEvent.RefreshRoutesEvent 事件，刷新缓存
+	 * GatewayWebfluxEndpoint 有一个 HTTP API 调用了 ApplicationEventPublisher ，发布 RefreshRoutesEvent 事件
+	 *
+	 */
 	@EventListener(RefreshRoutesEvent.class)
 	/* for testing */ void handleRefresh() {
 		refresh();

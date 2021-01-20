@@ -20,6 +20,9 @@ package org.springframework.cloud.gateway.route;
 import reactor.core.publisher.Flux;
 
 /**
+ * RouteLocator 可以直接自定义路由( org.springframework.cloud.gateway.route.Route ) ，
+ * 也可以通过 RouteDefinitionRouteLocator 获取 RouteDefinition ，并转换成 Route 。
+ * RoutePredicateHandlerMapping 使用 RouteLocator 获得 Route 信息。
  * 获取Route
  */
 public interface RouteLocator {
