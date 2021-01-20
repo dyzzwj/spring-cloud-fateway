@@ -29,7 +29,17 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * @author Spencer Gibb
+ * @请求指定header正则匹配指定值
+ *
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: header_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - Header=X-Request-Id, \d+
  */
 public class HeaderRoutePredicateFactory extends AbstractRoutePredicateFactory<HeaderRoutePredicateFactory.Config> {
 
@@ -57,6 +67,7 @@ public class HeaderRoutePredicateFactory extends AbstractRoutePredicateFactory<H
 			// values is now guaranteed to not be empty
 			if (hasRegex) {
 				// check if a header value matches
+				//正则
 				return values.stream().anyMatch(value -> value.matches(config.regexp));
 			}
 

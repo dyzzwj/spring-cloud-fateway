@@ -1,0 +1,7 @@
+DispatcherHandler   根究路径匹配HandlerMapping
+
+RoutePredicateHandlerMapping   根据predicate匹配Route 返回FilteringWebHandler
+
+FilteringWebHandler 创建DefaultGatewayFilterChain
+
+

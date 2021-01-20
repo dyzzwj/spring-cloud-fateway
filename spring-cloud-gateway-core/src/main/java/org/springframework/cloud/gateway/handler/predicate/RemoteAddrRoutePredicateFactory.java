@@ -39,7 +39,17 @@ import io.netty.handler.ipfilter.IpFilterRuleType;
 import io.netty.handler.ipfilter.IpSubnetFilterRule;
 
 /**
- * @author Spencer Gibb
+ * 请求来源 IP 在指定范围内
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: remoteaddr_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - RemoteAddr=192.168.1.1/24
+ *
  */
 public class RemoteAddrRoutePredicateFactory extends AbstractRoutePredicateFactory<RemoteAddrRoutePredicateFactory.Config> {
 
@@ -75,6 +85,7 @@ public class RemoteAddrRoutePredicateFactory extends AbstractRoutePredicateFacto
 		return exchange -> {
 			InetSocketAddress remoteAddress = config.remoteAddressResolver.resolve(exchange);
 			if (remoteAddress != null) {
+				//来源Ip
 				String hostAddress = remoteAddress.getAddress().getHostAddress();
 				String host = exchange.getRequest().getURI().getHost();
 

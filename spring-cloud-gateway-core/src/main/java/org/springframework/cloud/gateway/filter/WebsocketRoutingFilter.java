@@ -30,7 +30,15 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.s
 import static org.springframework.util.StringUtils.commaDelimitedListToStringArray;
 
 /**
- * @author Spencer Gibb
+ * Websocket 路由网关过滤器。其根据 ws:// / wss:// 前缀( Scheme )过滤处理，代理后端 Websocket 服务，提供给客户端连接
+ * cloud:
+ *     gateway:
+ *       routes:
+ *       - id: websocket_test
+ *         uri: ws://localhost:9000
+ *         order: 8000
+ *         predicates:
+ *         - Path=/echo
  */
 public class WebsocketRoutingFilter implements GlobalFilter, Ordered {
 	private static final Log log = LogFactory.getLog(WebsocketRoutingFilter.class);

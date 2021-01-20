@@ -17,6 +17,10 @@ public interface GatewayFilterChain {
 	 * @param exchange the current server exchange
 	 * @return {@code Mono<Void>} to indicate when request handling is complete
 	 */
+
+	/**
+	 * 过滤器链 只支持GatewayFilter调用  GlobalFilter需要使用GatewayFilterAdapter适配
+	 */
 	Mono<Void> filter(ServerWebExchange exchange);
 
 }

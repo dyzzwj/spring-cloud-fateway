@@ -49,6 +49,9 @@ public class GatewaySampleApplication {
 	@Value("${test.uri:http://httpbin.org:80}")
 	String uri;
 
+
+
+
 	@Bean
 	public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
 		//@formatter:off

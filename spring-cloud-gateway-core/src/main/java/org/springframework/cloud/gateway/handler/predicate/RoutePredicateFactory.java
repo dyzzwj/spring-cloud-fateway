@@ -68,12 +68,21 @@ public interface RoutePredicateFactory<C> extends ShortcutConfigurable, Configur
 
 	default void beforeApply(C config) {}
 
+	/**
+	 * 创建Predicate
+	 */
 	Predicate<ServerWebExchange> apply(C config);
 
 	default AsyncPredicate<ServerWebExchange> applyAsync(C config) {
 		return toAsyncPredicate(apply(config));
 	}
 
+
+	/**
+	 * 调用 NameUtils#normalizePredicateName(Class) 方法，获得 RoutePredicateFactory 的名字。
+	 * 该方法截取类名前半段，例如 QueryRoutePredicateFactory 的结果为 Query
+	 * @return
+	 */
 	default String name() {
 		return NameUtils.normalizeRoutePredicateName(getClass());
 	}

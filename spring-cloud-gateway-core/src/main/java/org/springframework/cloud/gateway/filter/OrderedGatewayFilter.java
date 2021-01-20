@@ -23,10 +23,14 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * @author Spencer Gibb
+ *
+ * 有序的网关过滤器实现类
+ * 在 FilterChain 里，过滤器数组首先会按照 order 升序排序，按照顺序过滤请求
+ *
  */
 public class OrderedGatewayFilter implements GatewayFilter, Ordered {
 
+	//委托的GatewayFilter
 	private final GatewayFilter delegate;
 	private final int order;
 

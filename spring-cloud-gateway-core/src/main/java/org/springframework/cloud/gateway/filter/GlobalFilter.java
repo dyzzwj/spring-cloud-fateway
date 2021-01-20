@@ -30,6 +30,10 @@ import reactor.core.publisher.Mono;
  * @author Rossen Stoyanchev
  * @since 5.0
  */
+
+/**
+ * GlobalFilter会作用在所有的Route上
+ */
 public interface GlobalFilter {
 
 	/**
@@ -39,6 +43,30 @@ public interface GlobalFilter {
 	 * @param chain provides a way to delegate to the next filter
 	 * @return {@code Mono<Void>} to indicate when request processing is complete
 	 */
+	/**
+	 *  GatewayFilteChain 只支持使用 GatewayFilter 过滤请求，
+	 *  所以在FilteringWebHandler#loadFilters中 将 GlobalFilter 委托成 GatewayFilterAdapter
+	 */
 	Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain);
+
+	/**
+	 * 目前gateway内置的GlobalFilter	顺序（值越小 顺序越靠前）
+	 *
+	 * NettyWriteResponseFilter	-1
+	 * WebClientWriteResponseFilter	-1
+	 * RouteToRequestUrlFilter	10000
+	 * LoadBalancerClientFilter	10100
+	 * ForwardRoutingFilter	Integer.MAX_VALUE
+	 * NettyRoutingFilter	Integer.MAX_VALUE
+	 * WebClientHttpRoutingFilter	Integer.MAX_VALUE
+	 * WebsocketRoutingFilter	Integer.MAX_VALUE
+	 */
+
+
+
+
+
+
+
 
 }

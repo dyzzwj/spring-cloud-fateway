@@ -62,7 +62,7 @@ public class CachingRouteLocator implements RouteLocator {
 
 	/**
 	 * 监听 org.springframework.context.ApplicationEvent.RefreshRoutesEvent 事件，刷新缓存
-	 * GatewayWebfluxEndpoint 有一个 HTTP API 调用了 ApplicationEventPublisher ，发布 RefreshRoutesEvent 事件
+	 * GatewayControllerEndpoint 有一个 HTTP API 调用了 ApplicationEventPublisher ，发布 RefreshRoutesEvent 事件
 	 *
 	 */
 	@EventListener(RefreshRoutesEvent.class)

@@ -52,8 +52,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 
 /**
- * {@link RouteLocator} that loads routes from a {@link RouteDefinitionLocator}
- * @author Spencer Gibb
+ * 从RouteDefinitionLocator获取RouteDefinition 转换成Route
  */
 public class RouteDefinitionRouteLocator implements RouteLocator, BeanFactoryAware, ApplicationEventPublisherAware {
 	protected final Log logger = LogFactory.getLog(getClass());
@@ -68,6 +67,7 @@ public class RouteDefinitionRouteLocator implements RouteLocator, BeanFactoryAwa
 	 */
 	private final Map<String, GatewayFilterFactory> gatewayFilterFactories = new HashMap<>();
 	private final GatewayProperties gatewayProperties;
+	//spring el表达式解析器
 	private final SpelExpressionParser parser = new SpelExpressionParser();
 	private BeanFactory beanFactory;
 	private ApplicationEventPublisher publisher;
@@ -228,11 +228,20 @@ public class RouteDefinitionRouteLocator implements RouteLocator, BeanFactoryAwa
 
 	private AsyncPredicate<ServerWebExchange> combinePredicates(RouteDefinition routeDefinition) {
 		List<PredicateDefinition> predicates = routeDefinition.getPredicates();
-		//将列表中每一个 PredicateDefinition 都转换成 AsyncPredicate
+		/**
+		 * 1、将列表中每一个 PredicateDefinition 都转换成 AsyncPredicate
+		 *  2、根据PredicateDefinition 生成Config对象
+		 *
+		 */
 		AsyncPredicate<ServerWebExchange> predicate = lookup(routeDefinition, predicates.get(0));
 
 		//拼接Predicate
 		for (PredicateDefinition andPredicate : predicates.subList(1, predicates.size())) {
+			/**
+			 * 1、将列表中每一个 PredicateDefinition 都转换成 AsyncPredicate
+			 *  2、根据PredicateDefinition 生成Config对象
+			 */
+
 			AsyncPredicate<ServerWebExchange> found = lookup(routeDefinition, andPredicate);
 			predicate = predicate.and(found);
 		}

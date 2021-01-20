@@ -31,7 +31,18 @@ import org.springframework.web.server.ServerWebExchange;
 import javax.validation.constraints.NotEmpty;
 
 /**
- * @author Spencer Gibb
+ * 请求时间满足在配置时间之间
+ *
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: between_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - Betweeen=2017-01-20T17:42:47.789-07:00[America/Denver], 2017-01-21T17:42:47.789-07:00[America/Denver]
+ *
  */
 public class BetweenRoutePredicateFactory extends AbstractRoutePredicateFactory<BetweenRoutePredicateFactory.Config> {
 
@@ -90,9 +101,11 @@ public class BetweenRoutePredicateFactory extends AbstractRoutePredicateFactory<
 
 	public static ZonedDateTime getZonedDateTime(Object value) {
 		ZonedDateTime dateTime;
+		//当值类型为ZonedDateTime
 		if (value instanceof ZonedDateTime) {
 			dateTime = ZonedDateTime.class.cast(value);
 		} else {
+
 			dateTime = parseZonedDateTime(value.toString());
 		}
 		return dateTime;
@@ -101,12 +114,14 @@ public class BetweenRoutePredicateFactory extends AbstractRoutePredicateFactory<
 	public static ZonedDateTime parseZonedDateTime(String dateString) {
 		ZonedDateTime dateTime;
 		try {
+			//数字
 			long epoch = Long.parseLong(dateString);
 
 			dateTime = Instant.ofEpochMilli(epoch).atOffset(ZoneOffset.ofTotalSeconds(0))
 					.toZonedDateTime();
 		} catch (NumberFormatException e) {
 			// try ZonedDateTime instead
+			//字符串
 			dateTime = ZonedDateTime.parse(dateString);
 		}
 

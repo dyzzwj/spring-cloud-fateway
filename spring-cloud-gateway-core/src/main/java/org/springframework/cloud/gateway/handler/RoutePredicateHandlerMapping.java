@@ -37,7 +37,7 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.G
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR;
 
 /**
- * @author Spencer Gibb
+ *  匹配Route,并返回处理 Route 的 FilteringWebHandler
  */
 public class RoutePredicateHandlerMapping extends AbstractHandlerMapping {
 
@@ -52,7 +52,13 @@ public class RoutePredicateHandlerMapping extends AbstractHandlerMapping {
 
 		this.managementPort = getPortProperty(environment, "management.server.");
 		this.managementPortType = getManagementPortType(environment);
-		setOrder(1);
+		/**
+		 * 调用 #setOrder(1) 的原因，Spring Cloud Gateway 的 GatewayControllerEndpoint 提供 HTTP API ，
+		 * 不需要经过网关，它通过 RequestMappingHandlerMapping 进行请求匹配处理。
+		 * RequestMappingHandlerMapping 的 order = 0(见WebFluxConfigurationSupport#requestMappingHandlerMapping()) ，
+		 * 需要排在 RoutePredicateHandlerMapping 前面。所以，RoutePredicateHandlerMapping 设置 order = 1
+		 */
+		setOrder(1);  //RequestMappingHandlerMapping
 		setCorsConfigurations(globalCorsProperties.getCorsConfigurations());
 	}
 
@@ -71,6 +77,13 @@ public class RoutePredicateHandlerMapping extends AbstractHandlerMapping {
 		return environment.getProperty(prefix + "port", Integer.class);
 	}
 
+	/**
+	 * DispatcherHandler中调用
+	 *
+	 * 匹配 Route ，并返回处理 Route 的 FilteringWebHandler
+	 * @param exchange
+	 * @return
+	 */
 	@Override
 	protected Mono<?> getHandlerInternal(ServerWebExchange exchange) {
 		// don't handle requests on management port if set and different than server port
@@ -78,19 +91,22 @@ public class RoutePredicateHandlerMapping extends AbstractHandlerMapping {
 				&& exchange.getRequest().getURI().getPort() == this.managementPort) {
 			return Mono.empty();
 		}
+		// 设置 GATEWAY_HANDLER_MAPPER_ATTR 为 RoutePredicateHandlerMapping
 		exchange.getAttributes().put(GATEWAY_HANDLER_MAPPER_ATTR, getSimpleName());
 
-		return lookupRoute(exchange)
+		return lookupRoute(exchange)  //匹配Route
 				// .log("route-predicate-handler-mapping", Level.FINER) //name this
-				.flatMap((Function<Route, Mono<?>>) r -> {
+				.flatMap((Function<Route, Mono<?>>) r -> { //返回 FilteringWebHandler
 					exchange.getAttributes().remove(GATEWAY_PREDICATE_ROUTE_ATTR);
 					if (logger.isDebugEnabled()) {
 						logger.debug("Mapping [" + getExchangeDesc(exchange) + "] to " + r);
 					}
-
+					/**
+					 * 设置 GATEWAY_ROUTE_ATTR 为 匹配的 Route
+					 */
 					exchange.getAttributes().put(GATEWAY_ROUTE_ATTR, r);
 					return Mono.just(webHandler);
-				}).switchIfEmpty(Mono.empty().then(Mono.fromRunnable(() -> {
+				}).switchIfEmpty(Mono.empty().then(Mono.fromRunnable(() -> { //匹配不到 Route ，返回 Mono.empty() ，即不返回处理器
 					exchange.getAttributes().remove(GATEWAY_PREDICATE_ROUTE_ATTR);
 					if (logger.isTraceEnabled()) {
 						logger.trace("No RouteDefinition found for [" + getExchangeDesc(exchange) + "]");
@@ -119,13 +135,18 @@ public class RoutePredicateHandlerMapping extends AbstractHandlerMapping {
 
 	protected Mono<Route> lookupRoute(ServerWebExchange exchange) {
 		return this.routeLocator
-				.getRoutes()
+				.getRoutes() //拿到所有Route
 				//individually filter routes so that filterWhen error delaying is not a problem
 				.concatMap(route -> Mono
 						.just(route)
 						.filterWhen(r -> {
 							// add the current route we are testing
 							exchange.getAttributes().put(GATEWAY_PREDICATE_ROUTE_ATTR, r.getId());
+							/**
+							 * 顺序匹配一个Route  匹配到一个即返回
+							 * 实际上就是调用某个AfterRoutePredicateFactory#apply()方法当中的
+							 * lambda表达式（RouteDefinitionRouteLocator#lookup构建时赋值）
+							 */
 							return r.getPredicate().apply(exchange);
 						})
 						//instead of immediately stopping main flux due to error, log and swallow it
@@ -141,6 +162,9 @@ public class RoutePredicateHandlerMapping extends AbstractHandlerMapping {
 					if (logger.isDebugEnabled()) {
 						logger.debug("Route matched: " + route.getId());
 					}
+					/**
+					 * 校验 Route 的有效性。目前该方法是个空方法，可以通过继承 RoutePredicateHandlerMapping 进行覆盖重写
+					 */
 					validateRoute(route, exchange);
 					return route;
 				});

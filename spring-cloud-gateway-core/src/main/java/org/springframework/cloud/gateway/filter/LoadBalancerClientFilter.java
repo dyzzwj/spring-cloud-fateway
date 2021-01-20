@@ -35,14 +35,15 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.a
 import reactor.core.publisher.Mono;
 
 /**
- * @author Spencer Gibb
- * @author Tim Ysewyn
+ * 处理以lb://开头的route.uri  需要进行负载均衡的请求
+ *
  */
 public class LoadBalancerClientFilter implements GlobalFilter, Ordered {
 
 	private static final Log log = LogFactory.getLog(LoadBalancerClientFilter.class);
 	public static final int LOAD_BALANCER_CLIENT_FILTER_ORDER = 10100;
 
+	//负载均衡客户端
 	protected final LoadBalancerClient loadBalancer;
 
 	public LoadBalancerClientFilter(LoadBalancerClient loadBalancer) {
@@ -57,16 +58,21 @@ public class LoadBalancerClientFilter implements GlobalFilter, Ordered {
 	@Override
 	@SuppressWarnings("Duplicates")
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+		//获得url
 		URI url = exchange.getAttribute(GATEWAY_REQUEST_URL_ATTR);
+		//获取uri前缀   lb
 		String schemePrefix = exchange.getAttribute(GATEWAY_SCHEME_PREFIX_ATTR);
+		//如果route.uri不是以lb://开头 就执行下一个filter 只处理 lb:// 为前缀( Scheme )的地址。
 		if (url == null || (!"lb".equals(url.getScheme()) && !"lb".equals(schemePrefix))) {
 			return chain.filter(exchange);
 		}
 		//preserve the original url
+		//添加原始请求url到GATEWAY_ORIGINAL_REQUEST_URL_ATTR
 		addOriginalRequestUrl(exchange, url);
 
 		log.trace("LoadBalancerClientFilter url before: " + url);
 
+		//调用负载均衡客户端根据服务名获取服务实例
 		final ServiceInstance instance = choose(exchange);
 
 		if (instance == null) {
@@ -82,9 +88,11 @@ public class LoadBalancerClientFilter implements GlobalFilter, Ordered {
 			overrideScheme = url.getScheme();
 		}
 
+		//构建请求url
 		URI requestUrl = loadBalancer.reconstructURI(new DelegatingServiceInstance(instance, overrideScheme), uri);
 
 		log.trace("LoadBalancerClientFilter url chosen: " + requestUrl);
+		// 添加 请求URI 到 GATEWAY_REQUEST_URL_ATTR
 		exchange.getAttributes().put(GATEWAY_REQUEST_URL_ATTR, requestUrl);
 		return chain.filter(exchange);
 	}

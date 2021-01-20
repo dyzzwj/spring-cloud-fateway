@@ -25,7 +25,17 @@ import org.springframework.http.HttpMethod;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * @author Spencer Gibb
+ * 请求method匹配指定值
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: method_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - Method=GET
+ *
  */
 public class MethodRoutePredicateFactory extends AbstractRoutePredicateFactory<MethodRoutePredicateFactory.Config> {
 
@@ -44,6 +54,7 @@ public class MethodRoutePredicateFactory extends AbstractRoutePredicateFactory<M
 	public Predicate<ServerWebExchange> apply(Config config) {
 		return exchange -> {
 			HttpMethod requestMethod = exchange.getRequest().getMethod();
+			//匹配
 			return requestMethod == config.getMethod();
 		};
 	}

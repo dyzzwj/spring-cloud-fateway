@@ -28,7 +28,18 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * @author Spencer Gibb
+ * 请求QueryParam匹配指定值
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: query_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - Query=baz
+ *         - Query=foo, ba.
+ *
  */
 public class QueryRoutePredicateFactory extends AbstractRoutePredicateFactory<QueryRoutePredicateFactory.Config> {
 
@@ -47,12 +58,14 @@ public class QueryRoutePredicateFactory extends AbstractRoutePredicateFactory<Qu
 	@Override
 	public Predicate<ServerWebExchange> apply(Config config) {
 		return exchange -> {
+			//包含参数
 			if (!StringUtils.hasText(config.regexp)) {
 				// check existence of header
 				return exchange.getRequest().getQueryParams().containsKey(config.param);
 			}
 
 
+			//正则匹配
 			List<String> values = exchange.getRequest().getQueryParams().get(config.param);
 			if (values == null) {
 				return false;

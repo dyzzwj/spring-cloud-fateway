@@ -35,7 +35,7 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.c
 import reactor.core.publisher.Mono;
 
 /**
- * @author Spencer Gibb
+ * RouteToRequestUrlFilter 根据匹配的 Route ，计算请求的地址。注意，这里的地址指的是 URL ，而不是 URI 。
  */
 public class RouteToRequestUrlFilter implements GlobalFilter, Ordered {
 
@@ -52,6 +52,7 @@ public class RouteToRequestUrlFilter implements GlobalFilter, Ordered {
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+		//获取Route RoutePredicateHandlerMapping里设置的
 		Route route = exchange.getAttribute(GATEWAY_ROUTE_ATTR);
 		if (route == null) {
 			return chain.filter(exchange);
@@ -74,6 +75,7 @@ public class RouteToRequestUrlFilter implements GlobalFilter, Ordered {
 			throw new IllegalStateException("Invalid host: " + routeUri.toString());
 		}
 
+		//拼接url
 		URI mergedUrl = UriComponentsBuilder.fromUri(uri)
 				// .uri(routeUri)
 				.scheme(routeUri.getScheme())
@@ -81,7 +83,9 @@ public class RouteToRequestUrlFilter implements GlobalFilter, Ordered {
 				.port(routeUri.getPort())
 				.build(encoded)
 				.toUri();
+		// 设置 requestUrl 到 GATEWAY_REQUEST_URL_ATTR {@link RewritePathGatewayFilterFactory}
 		exchange.getAttributes().put(GATEWAY_REQUEST_URL_ATTR, mergedUrl);
+		//继续执行下一个过滤器
 		return chain.filter(exchange);
 	}
 

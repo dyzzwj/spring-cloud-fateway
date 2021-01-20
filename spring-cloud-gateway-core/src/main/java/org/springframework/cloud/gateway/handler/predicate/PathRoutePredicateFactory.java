@@ -36,12 +36,23 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.p
 import static org.springframework.http.server.PathContainer.parsePath;
 
 /**
- * @author Spencer Gibb
+ * 请求path匹配指定值
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: host_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - Path=/foo/{segment}
+ *
  */
 public class PathRoutePredicateFactory extends AbstractRoutePredicateFactory<PathRoutePredicateFactory.Config> {
 	private static final Log log = LogFactory.getLog(RoutePredicateFactory.class);
 	private static final String MATCH_OPTIONAL_TRAILING_SEPARATOR_KEY = "matchOptionalTrailingSeparator";
 
+	//路径模式解析器
 	private PathPatternParser pathPatternParser = new PathPatternParser();
 
 	public PathRoutePredicateFactory() {
@@ -61,14 +72,20 @@ public class PathRoutePredicateFactory extends AbstractRoutePredicateFactory<Pat
 	public Predicate<ServerWebExchange> apply(Config config) {
 		synchronized (this.pathPatternParser) {
 			pathPatternParser.setMatchOptionalTrailingSeparator(config.isMatchOptionalTrailingSeparator());
+			/**
+			 * 解析Path 创建对应的PathPattern
+			 */
 			config.pathPattern = this.pathPatternParser.parse(config.pattern);
 		}
 		return exchange -> {
+			//以下代码运行时才会调用
 			PathContainer path = parsePath(exchange.getRequest().getURI().getRawPath());
 
+			//匹配
 			boolean match = config.pathPattern.matches(path);
 			traceMatch("Pattern", config.pathPattern.getPatternString(), path, match);
 			if (match) {
+				//解析路径参数 例如 path=/foo/123 <=> /foo/{segment}
 				PathMatchInfo pathMatchInfo = config.pathPattern.matchAndExtract(path);
 				putUriTemplateVariables(exchange, pathMatchInfo.getUriVariables());
 			}

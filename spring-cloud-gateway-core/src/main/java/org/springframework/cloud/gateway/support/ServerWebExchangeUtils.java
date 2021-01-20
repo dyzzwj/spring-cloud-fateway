@@ -116,6 +116,9 @@ public class ServerWebExchangeUtils {
 	}
 
 	public static void addOriginalRequestUrl(ServerWebExchange exchange, URI url) {
+		/**
+		 * 为什么使用 LinkedHashSet ？因为可以使用 RewritePathGatewayFilterFactory / PrefixPathGatewayFilterFactory 多次重写。
+		 */
 		exchange.getAttributes().computeIfAbsent(GATEWAY_ORIGINAL_REQUEST_URL_ATTR, s -> new LinkedHashSet<>());
 		LinkedHashSet<URI> uris = exchange.getRequiredAttribute(GATEWAY_ORIGINAL_REQUEST_URL_ATTR);
 		uris.add(url);

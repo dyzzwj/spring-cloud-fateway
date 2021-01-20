@@ -30,10 +30,24 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * @author Spencer Gibb
+ * 请求HOst指定值
+ * spring:
+ *   cloud:
+ *     gateway:
+ *       routes:
+ *       # =====================================
+ *       - id: host_route
+ *         uri: http://example.org
+ *         predicates:
+ *         - Host=**.somehost.org
+ *
  */
 public class HostRoutePredicateFactory extends AbstractRoutePredicateFactory<HostRoutePredicateFactory.Config> {
 
+	/**
+	 *  属性，路径匹配器，默认使用 org.springframework.util.AntPathMatcher 。
+	 *  通过 #setPathMatcher(PathMatcher) 方法，可以重新设置
+	 */
 	private PathMatcher pathMatcher = new AntPathMatcher(".");
 
 	public HostRoutePredicateFactory() {
@@ -53,6 +67,7 @@ public class HostRoutePredicateFactory extends AbstractRoutePredicateFactory<Hos
 	public Predicate<ServerWebExchange> apply(Config config) {
 		return exchange -> {
 			String host = exchange.getRequest().getHeaders().getFirst("Host");
+			//匹配
 			boolean match = this.pathMatcher.match(config.getPattern(), host);
 			if (match) {
 				Map<String, String> variables = this.pathMatcher.extractUriTemplateVariables(config.getPattern(), host);
