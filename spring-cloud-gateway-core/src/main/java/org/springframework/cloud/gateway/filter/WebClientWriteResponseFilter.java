@@ -30,7 +30,8 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.C
 import reactor.core.publisher.Mono;
 
 /**
- * @author Spencer Gibb
+ * 与 WebClientHttpRoutingFilter 成对使用的网关过滤器。
+ * 其将 WebClientWriteResponseFilter 请求后端 Http 服务的响应写回客户端
  */
 public class WebClientWriteResponseFilter implements GlobalFilter, Ordered {
 

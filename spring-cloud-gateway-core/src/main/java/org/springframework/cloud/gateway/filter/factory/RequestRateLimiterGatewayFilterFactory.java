@@ -31,7 +31,41 @@ import org.springframework.http.HttpStatus;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.setResponseStatus;
 
 /**
- * User Request Rate Limiter filter. See https://stripe.com/blog/rate-limiters and
+ * 创建 RequestRateLimiterGatewayFilter ( 实际是内部匿名类，为了表述方便，下面继续这么称呼 ) 。
+ * RequestRateLimiterGatewayFilter 使用 Redis + Lua 实现分布式限流。
+ * 而限流的粒度，例如 URL / 用户 / IP 等，通过 KeyResolver 实现类决定
+ *
+ * spring:
+ *   application:
+ *     name: cloud-gateway-eureka
+ *   redis:
+ *     host: localhost
+ *     password:
+ *     port: 6379
+ *   cloud:
+ *     gateway:
+ *      discovery:
+ *         locator:
+ *          enabled: true
+ *      routes:
+ *      - id: requestratelimiter_route
+ *        uri: http://example.org
+ *        filters:
+ *        - name: RequestRateLimiter
+ *          args:
+ *            redis-rate-limiter.replenishRate: 10
+ *            redis-rate-limiter.burstCapacity: 20
+ *            key-resolver: "#{@userKeyResolver}"
+ *        predicates:
+ *          - Method=GET
+ *
+ *
+ * 说明：
+ * 1、filter 名称必须是 RequestRateLimiter
+ * 2、redis-rate-limiter.replenishRate：令牌桶每秒填充平均速率
+ * 3、redis-rate-limiter.burstCapacity：令牌桶的容量，允许在一秒钟内完成的最大请求数
+ * 4、key-resolver：使用 SpEL 按名称引用 bean
+ *
  */
 @ConfigurationProperties("spring.cloud.gateway.filter.request-rate-limiter")
 public class RequestRateLimiterGatewayFilterFactory extends AbstractGatewayFilterFactory<RequestRateLimiterGatewayFilterFactory.Config> {
@@ -39,7 +73,9 @@ public class RequestRateLimiterGatewayFilterFactory extends AbstractGatewayFilte
 	public static final String KEY_RESOLVER_KEY = "keyResolver";
 	private static final String EMPTY_KEY = "____EMPTY_KEY__";
 
+	//限流器 RedisRateLimiter
 	private final RateLimiter defaultRateLimiter;
+	//限流键解析器 PrincipalNameKeyResolver  通过实现 KeyResolver 接口，实现获得不同的请求的限流键，例如URL / 用户 / IP 等。
 	private final KeyResolver defaultKeyResolver;
 
 	/** Switch to deny requests if the Key Resolver returns an empty key, defaults to true. */
@@ -79,9 +115,16 @@ public class RequestRateLimiterGatewayFilterFactory extends AbstractGatewayFilte
 		this.emptyKeyStatusCode = emptyKeyStatusCode;
 	}
 
+
+	/**
+	 * RequestRateLimiterGatewayFilter (匿名内部类)
+	 * @param config
+	 * @return
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public GatewayFilter apply(Config config) {
+		//限流键解析器 获得请求的限流键，例如URL / 用户 / IP 等  PrincipalNameKeyResolver
 		KeyResolver resolver = getOrDefault(config.keyResolver, defaultKeyResolver);
 		RateLimiter<Object> limiter = getOrDefault(config.rateLimiter, defaultRateLimiter);
 		boolean denyEmpty = getOrDefault(config.denyEmptyKey, this.denyEmptyKey);
@@ -89,13 +132,16 @@ public class RequestRateLimiterGatewayFilterFactory extends AbstractGatewayFilte
 
 		return (exchange, chain) -> {
 			Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
-
+			// resolver.resolve()：获得请求的限流键
 			return resolver.resolve(exchange).defaultIfEmpty(EMPTY_KEY).flatMap(key -> {
 				if (EMPTY_KEY.equals(key)) {
+					//如果限流键为空
 					if (denyEmpty) {
+						//拒绝限流键为空
 						setResponseStatus(exchange, emptyKeyStatus);
 						return exchange.getResponse().setComplete();
 					}
+					//允许访问
 					return chain.filter(exchange);
 				}
 				return limiter.isAllowed(route.getId(), key).flatMap(response -> {
@@ -104,10 +150,12 @@ public class RequestRateLimiterGatewayFilterFactory extends AbstractGatewayFilte
 						exchange.getResponse().getHeaders().add(header.getKey(), header.getValue());
 					}
 
+					//是否允许被访问
 					if (response.isAllowed()) {
+						//允许被访问
 						return chain.filter(exchange);
 					}
-
+					//被限流 不允许访问
 					setResponseStatus(exchange, config.getStatusCode());
 					return exchange.getResponse().setComplete();
 				});

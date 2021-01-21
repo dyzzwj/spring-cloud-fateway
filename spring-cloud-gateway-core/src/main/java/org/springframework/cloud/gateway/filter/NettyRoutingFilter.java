@@ -57,9 +57,15 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.s
 /**
  * NettyRoutingFilter ，Netty 路由网关过滤器。其根据 http:// 或 https:// 前缀( Scheme )过滤处理，
  * 使用基于 Netty 实现的 HttpClient 请求后端 Http 服务。
+ *
+ * NettyWriteResponseFilter ，与 NettyRoutingFilter 成对使用的网关过滤器。
+ * 其将 NettyRoutingFilter 请求后端 Http 服务的响应写回客户端。
  */
 public class NettyRoutingFilter implements GlobalFilter, Ordered {
 
+	/**
+	 * 基于netty实现的htttpClient，通过该属性 请求后端的http服务
+	 */
 	private final HttpClient httpClient;
 	private final ObjectProvider<List<HttpHeadersFilter>> headersFiltersProvider;
 	private final HttpClientProperties properties;
@@ -86,19 +92,29 @@ public class NettyRoutingFilter implements GlobalFilter, Ordered {
 		return Ordered.LOWEST_PRECEDENCE;
 	}
 
+
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+		//获得requestUrl
 		URI requestUrl = exchange.getRequiredAttribute(GATEWAY_REQUEST_URL_ATTR);
+
+		/** 判断是否能够处理：
+		 * 1、request的schema前缀 http:// 或 https://
+		 * 2、该请求暂未被其他Routing网关处理
+		 */
 
 		String scheme = requestUrl.getScheme();
 		if (isAlreadyRouted(exchange) || (!"http".equals(scheme) && !"https".equals(scheme))) {
 			return chain.filter(exchange);
 		}
+		//设置已经路由
 		setAlreadyRouted(exchange);
 
 		ServerHttpRequest request = exchange.getRequest();
 
+		//请求方式
 		final HttpMethod method = HttpMethod.valueOf(request.getMethodValue());
+		//url
 		final String url = requestUrl.toString();
 
 		HttpHeaders filtered = filterRequest(getHeadersFilters(), exchange);
@@ -115,7 +131,7 @@ public class NettyRoutingFilter implements GlobalFilter, Ordered {
 			final HttpClientRequest proxyRequest = req.options(NettyPipeline.SendOptions::flushOnEach)
 					.headers(httpHeaders)
 					.chunkedTransfer(chunkedTransfer)
-					.failOnServerError(false)
+					.failOnServerError(false) //设置请求失败( 后端服务返回响应状体码 >= 400 )时，不抛出异常
 					.failOnClientError(false);
 
 			if (preserveHost) {
@@ -129,7 +145,7 @@ public class NettyRoutingFilter implements GlobalFilter, Ordered {
 			}
 
 			return proxyRequest.sendHeaders() //I shouldn't need this
-					.send(request.getBody().map(dataBuffer ->
+					.send(request.getBody().map(dataBuffer ->  //发送请求body
 							((NettyDataBuffer) dataBuffer).getNativeBuffer()));
 		});
 
@@ -138,6 +154,7 @@ public class NettyRoutingFilter implements GlobalFilter, Ordered {
 			// put headers and status so filters can modify the response
 			HttpHeaders headers = new HttpHeaders();
 
+			//添加响应头
 			res.responseHeaders().forEach(entry -> headers.add(entry.getKey(), entry.getValue()));
 
 			String contentTypeValue = headers.getFirst(HttpHeaders.CONTENT_TYPE);
@@ -163,6 +180,10 @@ public class NettyRoutingFilter implements GlobalFilter, Ordered {
 
 			// Defer committing the response until all route filters have run
 			// Put client response as ServerWebExchange attribute and write response later NettyWriteResponseFilter
+
+			/**
+			 * 设置 Response 到 CLIENT_RESPONSE_ATTR 后续 NettyWriteResponseFilter 将 Netty Response 写回给客户端
+			 */
 			exchange.getAttributes().put(CLIENT_RESPONSE_ATTR, res);
 		})
 				.onErrorMap(t -> properties.getResponseTimeout() != null && t instanceof ReadTimeoutException,

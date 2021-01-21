@@ -36,7 +36,7 @@ import org.springframework.web.server.ServerWebExchange;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.CLIENT_RESPONSE_ATTR;
 
 /**
- * @author Spencer Gibb
+ * 与 NettyRoutingFilter 成对使用的网关过滤器。其将 NettyRoutingFilter 请求后端 Http 服务的响应写回客户端。
  */
 public class NettyWriteResponseFilter implements GlobalFilter, Ordered {
 
@@ -59,7 +59,8 @@ public class NettyWriteResponseFilter implements GlobalFilter, Ordered {
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 		// NOTICE: nothing in "pre" filter stage as CLIENT_RESPONSE_ATTR is not added
 		// until the WebHandler is run
-		return chain.filter(exchange).then(Mono.defer(() -> {
+		return chain.filter(exchange).then(Mono.defer(() -> { //then()：实现After Filter逻辑
+			//拿到response
 			HttpClientResponse clientResponse = exchange.getAttribute(CLIENT_RESPONSE_ATTR);
 
 			if (clientResponse == null) {
@@ -81,6 +82,7 @@ public class NettyWriteResponseFilter implements GlobalFilter, Ordered {
 			} catch (Exception e) {
 				log.trace("invalid media type", e);
 			}
+			//将netty response写会给客户端
 			return (isStreamingMediaType(contentType) ?
 					response.writeAndFlushWith(body.map(Flux::just)) : response.writeWith(body));
 		}));

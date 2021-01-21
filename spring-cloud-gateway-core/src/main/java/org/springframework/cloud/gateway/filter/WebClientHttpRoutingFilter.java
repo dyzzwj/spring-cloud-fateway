@@ -38,10 +38,27 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.s
 import reactor.core.publisher.Mono;
 
 /**
- * @author Spencer Gibb
+ * Http 路由网关过滤器。其根据 http:// 或 https:// 前缀( Scheme )过滤处理，
+ * 使用基于 org.springframework.cloud.gateway.filter.WebClient 实现的 HttpClient 请求后端 Http 服务
+ */
+
+/**
+ * 目前 WebClientHttpRoutingFilter / WebClientWriteResponseFilter 处于实验阶段，建议等正式发布在使用。
+ *
+ * OK，下面我们来看看怎么配置环境。
+ *
+ * 第一步，在 NettyConfiguration 注释掉 #routingFilter(...) 和 #nettyWriteResponseFilter() 两个 Bean 方法。
+ *
+ * 第二步，在 GatewayAutoConfiguration 打开 #webClientHttpRoutingFilter() 和 #webClientWriteResponseFilter() 两个 Bean 方法。
+ *
+ * 第三步，配置完成，启动 Spring Cloud Gateway 。
  */
 public class WebClientHttpRoutingFilter implements GlobalFilter, Ordered {
 
+	/**
+	 * 默认情况下，使用 org.springframework.web.reactive.function.client.DefaultWebClient 实现类。
+	 * 通过该属性 请求后端服务
+	 */
 	private final WebClient webClient;
 
 	public WebClientHttpRoutingFilter(WebClient webClient) {
@@ -55,8 +72,14 @@ public class WebClientHttpRoutingFilter implements GlobalFilter, Ordered {
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+
+
 		URI requestUrl = exchange.getRequiredAttribute(GATEWAY_REQUEST_URL_ATTR);
 
+		/** 判断是否能够处理：
+		 * 1、request的schema前缀 http:// 或 https://
+		 * 2、该请求暂未被其他Routing网关处理
+		 */
 		String scheme = requestUrl.getScheme();
 		if (isAlreadyRouted(exchange) || (!"http".equals(scheme) && !"https".equals(scheme))) {
 			return chain.filter(exchange);

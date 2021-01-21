@@ -147,29 +147,48 @@ public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Confi
 		}
 
 		// How many requests per second do you want a user to be allowed to do?
+		//令牌桶每秒填充平均速率
 		int replenishRate = routeConfig.getReplenishRate();
 
 		// How much bursting do you want to allow?
+		//令牌桶容量
 		int burstCapacity = routeConfig.getBurstCapacity();
 
 		try {
+			/**
+			 * 准备redis的key
+			 */
 			List<String> keys = getKeys(id);
-
-
 			// The arguments to the LUA script. time() returns unixtime in seconds.
+			//得到lua脚本参数
 			List<String> scriptArgs = Arrays.asList(replenishRate + "", burstCapacity + "",
 					Instant.now().getEpochSecond() + "", "1");
 			// allowed, tokens_left = redis.eval(SCRIPT, keys, args)
+
+			/**
+			 * 执行redis lua脚本 获取令牌
+			 * 返回结果为 [是否获取令牌成功, 剩余令牌数] ，其中，1 代表获取令牌成功，0 代表令牌获取失败
+			 */
 			Flux<List<Long>> flux = this.redisTemplate.execute(this.script, keys, scriptArgs);
 			// .log("redisratelimiter", Level.FINER);
+			/**
+			 * 当 Redis Lua 脚本过程中发生异常，忽略异常，返回 Flux.just(Arrays.asList(1L, -1L)) ，即认为获取令牌成功。
+			 * 为什么？在 Redis 发生故障时，我们不希望限流器对 Reids 是强依赖，并且 Redis 发生故障的概率本身就很低。
+			 */
 			return flux.onErrorResume(throwable -> Flux.just(Arrays.asList(1L, -1L)))
+					/**
+					 * Flux#reduce(A, BiFunction<A, ? super T, A>) 方法，将 Flux<List<Long>> 转换成 Mono<List<Long>> 。
+					 * 因为 ReactiveRedisTemplate#execute(RedisScript<T>, List<K>, List<?>) 方法的执行结果为 Flux (多次 )，
+					 * 实际在当前场景里，自行 Redis Lua 脚本只会返回一次数组，所以转换成 Mono (一次)
+					 */
 					.reduce(new ArrayList<Long>(), (longs, l) -> {
 						longs.addAll(l);
 						return longs;
 					}).map(results -> {
+						//返回结果为 [是否获取令牌成功, 剩余令牌数] ，其中，1 代表获取令牌成功，0 代表令牌获取失败
 						boolean allowed = results.get(0) == 1L;
 						Long tokensLeft = results.get(1);
-
+						//返回响应
 						Response response = new Response(allowed, getHeaders(routeConfig, tokensLeft));
 
 						if (log.isDebugEnabled()) {
@@ -186,6 +205,9 @@ public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Confi
 			 */
 			log.error("Error determining if user allowed from redis", e);
 		}
+		/**
+		 * 发生异常时，例如 Redis 挂了，返回 Flux.just(Arrays.asList(1L, -1L)) ，即认为获取令牌成功。
+		 */
 		return Mono.just(new Response(true, getHeaders(routeConfig, -1L)));
 	}
 
@@ -205,10 +227,17 @@ public class RedisRateLimiter extends AbstractRateLimiter<RedisRateLimiter.Confi
 		// this allows for using redis cluster
 
 		// Make a unique key per user.
+		//令牌桶前缀
 		String prefix = "request_rate_limiter.{" + id;
 
 		// You need two Redis keys for Token Bucket.
+		/**
+		 * request_rate_limiter.${id}.tokens:令牌桶剩余令牌数
+		 */
 		String tokenKey = prefix + "}.tokens";
+		/**
+		 * request_rate_limiter.${id}.timestamp:令牌桶最后填充令牌时间
+		 */
 		String timestampKey = prefix + "}.timestamp";
 		return Arrays.asList(tokenKey, timestampKey);
 	}

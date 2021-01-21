@@ -57,11 +57,16 @@ public class GatewayControllerEndpoint implements ApplicationEventPublisherAware
 
 	private static final Log log = LogFactory.getLog(GatewayControllerEndpoint.class);
 
+	//路由定义路由器 获取RouteDefinition
 	private RouteDefinitionLocator routeDefinitionLocator;
+	//全局过滤器
 	private List<GlobalFilter> globalFilters;
+	//过滤器工厂
 	private List<GatewayFilterFactory> GatewayFilters;
 	private RouteDefinitionWriter routeDefinitionWriter;
+	//路由定位器
 	private RouteLocator routeLocator;
+	//事件发布器
 	private ApplicationEventPublisher publisher;
 
 	public GatewayControllerEndpoint(RouteDefinitionLocator routeDefinitionLocator, List<GlobalFilter> globalFilters,

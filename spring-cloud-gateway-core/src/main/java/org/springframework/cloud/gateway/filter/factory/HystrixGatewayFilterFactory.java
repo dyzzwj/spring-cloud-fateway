@@ -51,11 +51,9 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.c
 
 /**
  * Depends on `spring-cloud-starter-netflix-hystrix`,
- * {@see https://cloud.spring.io/spring-cloud-netflix/}.
  *
- * @author Spencer Gibb
- * @author Michele Mancioppi
- * @author Olga Maciaszek-Sharma
+ * 通过 HystrixGatewayFilterFactory ，可以创建 HystrixGatewayFilter ( 实际是内部匿名类，为了表述方便，下面继续这么称呼 ) 。
+ * HystrixGatewayFilter 使用 Hystrix ，实现基于 Route 级别的熔断功能。
  */
 public class HystrixGatewayFilterFactory extends AbstractGatewayFilterFactory<HystrixGatewayFilterFactory.Config> {
 
@@ -96,26 +94,43 @@ public class HystrixGatewayFilterFactory extends AbstractGatewayFilterFactory<Hy
 		return apply(config);
 	}
 
+
+	/**
+	 * 创建HystrixGatewayFilter(实际是匿名内部类)
+	 * @param config
+	 * @return
+	 */
 	@Override
 	public GatewayFilter apply(Config config) {
 		//TODO: if no name is supplied, generate one from command id (useful for default filter)
 		if (config.setter == null) {
 			Assert.notNull(config.name, "A name must be supplied for the Hystrix Command Key");
+			//创建 Hystrix Command 分组 Key 为 HystrixGatewayFilterFactory
 			HystrixCommandGroupKey groupKey = HystrixCommandGroupKey.Factory.asKey(getClass().getSimpleName());
+			//创建 Hystrix Command Key 为 commandName(配置文件里配置的)
 			HystrixCommandKey commandKey = HystrixCommandKey.Factory.asKey(config.name);
-
+			//创建 HystrixObservableCommand.Setter 对象
 			config.setter = Setter.withGroupKey(groupKey)
 					.andCommandKey(commandKey);
 		}
 
 		return (exchange, chain) -> {
+			//创建RouteHystrixCommand
 			RouteHystrixCommand command = new RouteHystrixCommand(config.setter, config.fallbackUri, exchange, chain);
 
 			return Mono.create(s -> {
+				//使用 Hystrix Command Observable 订阅
+				/**
+				 * 1)调用 RouteHystrixCommand#toObservable() 方法，内部会调用 RouteHystrixCommand#construct() 方法，
+				 * 获得执行 this.chain.filter(this.exchange) 的 Observable 。
+				 * 2）订阅 Observable ：成功或完成时，调用 Mono#success(Object) 方法，目前创建的 Mono 上没有相关的订阅；异常时，调用 Mono#error(Object) 方法，目前创建的 Mono 上调用 Mongo#onErrorResume(Function<Throwable, Mono<Void>>)) 方法，进行订阅
+				 */
 				Subscription sub = command.toObservable().subscribe(s::success, s::error, s::success);
+				// Mono 取消时，取消 Hystrix Command Observable 的订阅，结束 Hystrix Command 的执行
 				s.onCancel(sub::unsubscribe);
 			}).onErrorResume((Function<Throwable, Mono<Void>>) throwable -> {
 				if (throwable instanceof HystrixRuntimeException) {
+					//当 Hystrix Command 执行超时时，设置响应 504 状态码，并回写客户端响应( exchange.getResponse().setComplete() )
 					HystrixRuntimeException e = (HystrixRuntimeException) throwable;
 					HystrixRuntimeException.FailureType failureType = e.getFailureType();
 
@@ -138,7 +153,7 @@ public class HystrixGatewayFilterFactory extends AbstractGatewayFilterFactory<Hy
 					}
 				}
 				return Mono.error(throwable);
-			}).then();
+			}).then();//参数为空，返回空 Mono ，不再向后发射数据
 		};
 	}
 

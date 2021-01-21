@@ -32,6 +32,10 @@ import org.springframework.web.reactive.DispatcherHandler;
 @ConditionalOnClass({RedisTemplate.class, DispatcherHandler.class})
 class GatewayRedisAutoConfiguration {
 
+	/**
+	 * 加载 META-INF/scripts/request_rate_limiter.lua 路径下的 Redis Lua 脚本。该脚本使用 Redis 基于令牌桶算法实现限流
+	 * @return
+	 */
 	@Bean
 	@SuppressWarnings("unchecked")
 	public RedisScript redisRequestRateLimiterScript() {
@@ -57,6 +61,9 @@ class GatewayRedisAutoConfiguration {
 				serializationContext);
 	}
 
+	/**
+	 *使用 RedisScript 和 ReactiveRedisTemplate Bean 对象，创建 RedisRateLimiter Bean 对象
+	 */
 	@Bean
 	@ConditionalOnMissingBean
 	public RedisRateLimiter redisRateLimiter(ReactiveRedisTemplate<String, String> redisTemplate,
